@@ -1,0 +1,78 @@
+data_cfg:
+  dataset_name: SUSTech1K
+  dataset_root: your_path
+  dataset_partition: ./datasets/SUSTech1K/SUSTech1K.json
+  num_workers: 4
+  cache: false
+  data_in_use: [true, true]
+  remove_no_gallery: false
+  test_dataset_name: SUSTech1K
+
+evaluator_cfg:
+  enable_float16: true
+  restore_ckpt_strict: true
+  restore_hint: 50000
+  save_name: MHRGaitPlusPlus_SUSTech1K
+  eval_func: evaluate_indoor_dataset
+  sampler: {batch_shuffle: false, batch_size: 4, sample_type: all_ordered, frames_all_limit: 720}
+  metric:
+    type: euc
+    part_groups:
+      - {start: 0, end: 16, weight: 0.5}
+      - {start: 16, end: 18, weight: 0.5}
+  transform:
+    - {type: BaseSilCuttingTransform}
+    - {type: NoOperation}
+
+loss_cfg:
+  - {loss_term_weight: 1.0, margin: 0.2, type: TripletLoss, log_prefix: triplet}
+  - {loss_term_weight: 1.0, scale: 16, type: CrossEntropyLoss, log_prefix: softmax, log_accuracy: true}
+
+model_cfg:
+  model: MHRGaitPlusPlus
+  SilhouetteBackbone: {mode: p3d, in_channels: 1, layers: [1, 1, 1, 1], channels: [64, 128, 256, 512]}
+  SeparateBNNecks: {class_num: 250}
+  mhr_model_cfg:
+    hidden_dim: 256
+    embed_dim: 256
+    mixer_layers: 4
+    token_mlp_ratio: 4
+    channel_mlp_ratio: 2
+    dropout: 0.2
+    temporal_pool: max
+    temporal_kernel_size: 9
+    temporal_reduction: 4
+    temporal_dropout: 0.1
+    SeparateFCs: {in_channels: 256, out_channels: 256, parts_num: 2}
+    SeparateBNNecks: {class_num: 250, in_channels: 256, parts_num: 2}
+
+optimizer_cfg: {lr: 0.1, momentum: 0.9, solver: SGD, weight_decay: 0.0005}
+scheduler_cfg: {gamma: 0.1, milestones: [20000, 30000, 40000], scheduler: MultiStepLR}
+
+trainer_cfg:
+  enable_float16: true
+  fix_BN: false
+  with_test: true
+  log_iter: 100
+  restore_ckpt_strict: true
+  restore_hint: 0
+  save_iter: 10000
+  save_name: MHRGaitPlusPlus_SUSTech1K
+  sync_BN: true
+  find_unused_parameters: false
+  total_iter: 50000
+  sampler:
+    batch_shuffle: true
+    batch_size: [8, 8]
+    frames_num_fixed: 30
+    frames_skip_num: 4
+    sample_type: fixed_ordered
+    type: TripletSampler
+  transform:
+    - type: Compose
+      trf_cfg:
+        - {type: RandomPerspective, prob: 0.2}
+        - {type: BaseSilCuttingTransform}
+        - {type: RandomHorizontalFlip, prob: 0.2}
+        - {type: RandomRotate, prob: 0.2}
+    - {type: NoOperation}

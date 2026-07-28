@@ -1,0 +1,76 @@
+# CCPG MHR baseline+1+2 under the same optimization protocol as CCPG DeepGaitV2.
+# Only the modality-specific model, input root, and NoOperation transform differ.
+data_cfg:
+  dataset_name: CCPG
+  dataset_root: your_path
+  dataset_partition: ./datasets/CCPG/CCPG.json
+  num_workers: 1
+  cache: false
+  data_in_use: [0]
+  remove_no_gallery: false
+  test_dataset_name: CCPG
+
+evaluator_cfg:
+  enable_float16: true
+  restore_ckpt_strict: true
+  restore_hint: 60000
+  save_name: MHRGait_CCPG
+  sampler:
+    batch_shuffle: false
+    batch_size: 4
+    sample_type: all_ordered
+    frames_all_limit: 720
+  eval_func: evaluate_CCPG
+  metric: euc
+  transform: [{type: NoOperation}]
+
+loss_cfg:
+  - {loss_term_weight: 1.0, margin: 0.2, type: TripletLoss, log_prefix: triplet}
+  - {loss_term_weight: 1.0, scale: 16, type: CrossEntropyLoss, log_prefix: softmax, log_accuracy: true}
+
+model_cfg:
+  model: MHRGait
+  hidden_dim: 256
+  embed_dim: 256
+  mixer_layers: 4
+  token_mlp_ratio: 4
+  channel_mlp_ratio: 2
+  dropout: 0.2
+  temporal_pool: max
+  temporal_kernel_size: 9
+  temporal_reduction: 4
+  temporal_dropout: 0.1
+  SeparateFCs: {in_channels: 256, out_channels: 256, parts_num: 2}
+  SeparateBNNecks: {class_num: 100, in_channels: 256, parts_num: 2}
+
+optimizer_cfg:
+  lr: 0.1
+  momentum: 0.9
+  solver: SGD
+  weight_decay: 0.0005
+
+scheduler_cfg:
+  gamma: 0.1
+  milestones: [20000, 40000, 50000]
+  scheduler: MultiStepLR
+
+trainer_cfg:
+  enable_float16: true
+  fix_BN: false
+  log_iter: 100
+  with_test: true
+  restore_ckpt_strict: true
+  restore_hint: 0
+  save_iter: 10000
+  save_name: MHRGait_CCPG
+  sync_BN: true
+  find_unused_parameters: false
+  total_iter: 60000
+  sampler:
+    batch_shuffle: true
+    batch_size: [8, 16]
+    frames_num_fixed: 30
+    frames_skip_num: 4
+    sample_type: fixed_ordered
+    type: TripletSampler
+  transform: [{type: NoOperation}]
